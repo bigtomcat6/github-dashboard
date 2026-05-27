@@ -7,8 +7,7 @@ export default async function Home() {
   try {
     const data = await getDashboardData();
     const repos = [...data.repositories]
-      .sort((a, b) => b.stars - a.stars || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 6);
+      .sort((a, b) => b.languageBytes - a.languageBytes || b.stars - a.stars || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     return (
       <main className="shell">
@@ -37,15 +36,15 @@ export default async function Home() {
           <div className="card">
             <div className="section-title">
               <p className="eyebrow">Language aggregation</p>
-              <h2>Top languages</h2>
+              <h2>All repository languages</h2>
             </div>
             <div className="language-bar" aria-label="Language percentage bar">
-              {data.languages.slice(0, 8).map((lang) => (
+              {data.languages.slice(0, 12).map((lang) => (
                 <span key={lang.name} style={{ width: `${lang.percentage}%`, background: lang.color }} title={`${lang.name}: ${lang.percentage.toFixed(1)}%`} />
               ))}
             </div>
             <div className="language-list">
-              {data.languages.slice(0, 10).map((lang) => (
+              {data.languages.map((lang) => (
                 <div key={lang.name} className="language-row">
                   <span className="dot" style={{ background: lang.color }} />
                   <strong>{lang.name}</strong>
@@ -75,22 +74,55 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="card">
-          <div className="section-title">
-            <p className="eyebrow">Repository highlights</p>
-            <h2>Top repositories</h2>
+        <section className="card repo-details-section">
+          <div className="section-title split-title">
+            <div>
+              <p className="eyebrow">Detailed breakdown</p>
+              <h2>Every indexed repository</h2>
+            </div>
+            <p className="muted small-muted">Sorted by indexed language bytes. Each row shows the repo-level language distribution returned by GitHub.</p>
           </div>
-          <div className="repos">
+          <div className="repo-details">
             {repos.map((repo) => (
-              <article key={repo.id} className="repo">
-                <div>
-                  <h3>{repo.url ? <a href={repo.url}>{repo.fullName}</a> : repo.fullName}</h3>
-                  <p>{repo.description || (repo.isPrivate ? "Private repository details are hidden." : "No description.")}</p>
+              <article key={repo.id} className="repo-detail-card">
+                <div className="repo-detail-header">
+                  <div>
+                    <h3>{repo.url ? <a href={repo.url}>{repo.fullName}</a> : repo.fullName}</h3>
+                    <p>{repo.description || (repo.isPrivate ? "Private repository details are hidden." : "No description.")}</p>
+                  </div>
+                  <div className="repo-size">
+                    <strong>{formatBytes(repo.languageBytes)}</strong>
+                    <span>{repo.languages.length} languages</span>
+                  </div>
                 </div>
+
+                <div className="mini-language-bar" aria-label={`${repo.fullName} language percentage bar`}>
+                  {repo.languages.length > 0 ? repo.languages.map((lang) => (
+                    <span key={lang.name} style={{ width: `${lang.percentage}%`, background: lang.color }} title={`${lang.name}: ${lang.percentage.toFixed(1)}%`} />
+                  )) : <span className="empty-segment" />}
+                </div>
+
+                {repo.languages.length > 0 ? (
+                  <div className="repo-language-list">
+                    {repo.languages.map((lang) => (
+                      <div key={lang.name} className="repo-language-row">
+                        <span className="dot" style={{ background: lang.color }} />
+                        <strong>{lang.name}</strong>
+                        <span>{lang.percentage.toFixed(1)}%</span>
+                        <span>{formatBytes(lang.bytes)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">No language bytes were returned for this repository.</p>
+                )}
+
                 <div className="repo-meta">
-                  <span>{repo.primaryLanguage || "Unknown"}</span>
+                  <span>{repo.primaryLanguage || "Unknown primary"}</span>
                   <span>Stars {repo.stars}</span>
                   <span>Forks {repo.forks}</span>
+                  {repo.isPrivate && <span>Private</span>}
+                  {repo.isFork && <span>Fork</span>}
                 </div>
               </article>
             ))}
