@@ -26,6 +26,7 @@ h1 { margin-top: 4px; font-size: clamp(36px, 7vw, 76px); line-height: .95; lette
 h2 { margin-top: 4px; font-size: 28px; color: var(--title); letter-spacing: -0.04em; }
 h3 { color: var(--title); font-size: 16px; }
 .muted { color: var(--muted); margin-top: 12px; line-height: 1.7; }
+.small-muted { max-width: 410px; margin-top: 0; font-size: 13px; text-align: right; }
 .eyebrow { color: #93c5fd; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; font-weight: 700; }
 .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .chips span, .repo-meta span { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: #cbd5e1; background: rgba(15,23,42,.65); font-size: 13px; }
@@ -35,21 +36,36 @@ h3 { color: var(--title); font-size: 16px; }
 .stat strong { display: block; margin: 12px 0 8px; font-size: 30px; color: var(--title); }
 .stat span { color: var(--muted); font-size: 13px; }
 .grid { display: grid; grid-template-columns: 1.4fr .9fr; gap: 18px; margin-bottom: 18px; }
-.grid > .card, .shell > .card:last-child { padding: 24px; }
-.language-bar { display: flex; overflow: hidden; height: 18px; border-radius: 999px; margin: 24px 0; background: rgba(148,163,184,.18); }
-.language-bar span { display: block; min-width: 2px; }
+.grid > .card, .shell > .card:last-child, .repo-details-section { padding: 24px; }
+.split-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.language-bar, .mini-language-bar { display: flex; overflow: hidden; border-radius: 999px; background: rgba(148,163,184,.18); }
+.language-bar { height: 18px; margin: 24px 0; }
+.mini-language-bar { height: 12px; margin: 18px 0 16px; }
+.language-bar span, .mini-language-bar span { display: block; min-width: 2px; }
+.empty-segment { width: 100%; background: rgba(148, 163, 184, .2); }
 .language-list { display: grid; gap: 12px; }
-.language-row { display: grid; grid-template-columns: 14px 1fr 70px 90px; gap: 10px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); color: #cbd5e1; }
+.language-row, .repo-language-row { display: grid; grid-template-columns: 14px 1fr 70px 90px; gap: 10px; align-items: center; color: #cbd5e1; }
+.language-row { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.repo-language-row { padding: 9px 0; border-top: 1px solid rgba(148, 163, 184, 0.12); font-size: 14px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; }
 .clean-list { margin: 20px 0 0; padding-left: 18px; color: #cbd5e1; line-height: 1.9; }
 .warning { margin-top: 18px; padding: 14px; border: 1px solid rgba(251, 191, 36, .25); border-radius: 16px; color: #fde68a; background: rgba(251,191,36,.08); }
 .warning p + p { margin-top: 8px; }
-.repos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 20px; }
-.repo { display: flex; flex-direction: column; justify-content: space-between; gap: 20px; min-height: 145px; padding: 18px; border: 1px solid var(--line); border-radius: 20px; background: rgba(2,6,23,.36); }
-.repo p { margin-top: 8px; color: var(--muted); line-height: 1.55; }
-.repo-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.repo-details-section { margin-top: 18px; }
+.repo-details { display: grid; gap: 16px; margin-top: 22px; }
+.repo-detail-card { padding: 18px; border: 1px solid var(--line); border-radius: 22px; background: rgba(2,6,23,.36); }
+.repo-detail-header { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; }
+.repo-detail-header p { margin-top: 8px; color: var(--muted); line-height: 1.55; }
+.repo-size { min-width: 120px; text-align: right; }
+.repo-size strong { display: block; color: var(--title); font-size: 18px; }
+.repo-size span { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+.repo-language-list { display: grid; }
+.repo-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 .error { padding: 32px; }
 @media (max-width: 850px) {
   .hero { align-items: flex-start; flex-direction: column; }
-  .stats, .grid, .repos { grid-template-columns: 1fr; }
+  .stats, .grid { grid-template-columns: 1fr; }
+  .split-title, .repo-detail-header { grid-template-columns: 1fr; display: grid; }
+  .small-muted, .repo-size { text-align: left; }
+  .language-row, .repo-language-row { grid-template-columns: 14px 1fr 64px 78px; }
 }
