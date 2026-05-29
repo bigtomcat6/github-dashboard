@@ -1,3 +1,4 @@
+import { shouldShowRepositoryDetails } from "@/lib/auth";
 import { formatBytes, formatNumber, getDashboardData } from "@/lib/github";
 
 export const runtime = "nodejs";
@@ -6,8 +7,9 @@ export const revalidate = 86400;
 export default async function Home() {
   try {
     const data = await getDashboardData();
-    const repos = [...data.repositories]
-      .sort((a, b) => b.languageBytes - a.languageBytes || b.stars - a.stars || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const showRepositoryDetails = shouldShowRepositoryDetails();
+    const repos = showRepositoryDetails ? [...data.repositories]
+      .sort((a, b) => b.languageBytes - a.languageBytes || b.stars - a.stars || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()) : [];
 
     return (
       <main className="shell">
@@ -64,6 +66,7 @@ export default async function Home() {
               <li>GitHub access is handled on the server side.</li>
               <li>The public API is fixed to one configured username.</li>
               <li>Private repository names are {data.meta.privateRepositoryNamesExposed ? "visible" : "masked"}.</li>
+              <li>Repository detail visibility is {showRepositoryDetails ? "enabled" : "disabled"}.</li>
               <li>Cache period: {data.meta.revalidateSeconds}s.</li>
             </ul>
             {data.meta.warnings.length > 0 && (
@@ -74,60 +77,68 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="card repo-details-section">
-          <div className="section-title split-title">
-            <div>
-              <p className="eyebrow">Detailed breakdown</p>
-              <h2>Every indexed repository</h2>
+        {showRepositoryDetails ? (
+          <section className="card repo-details-section">
+            <div className="section-title split-title">
+              <div>
+                <p className="eyebrow">Detailed breakdown</p>
+                <h2>Every indexed repository</h2>
+              </div>
+              <p className="muted small-muted">Sorted by indexed language bytes. Each row shows the repo-level language distribution returned by GitHub.</p>
             </div>
-            <p className="muted small-muted">Sorted by indexed language bytes. Each row shows the repo-level language distribution returned by GitHub.</p>
-          </div>
-          <div className="repo-details">
-            {repos.map((repo) => (
-              <article key={repo.id} className="repo-detail-card">
-                <div className="repo-detail-header">
-                  <div>
-                    <h3>{repo.url ? <a href={repo.url}>{repo.fullName}</a> : repo.fullName}</h3>
-                    <p>{repo.description || (repo.isPrivate ? "Private repository details are hidden." : "No description.")}</p>
+            <div className="repo-details">
+              {repos.map((repo) => (
+                <article key={repo.id} className="repo-detail-card">
+                  <div className="repo-detail-header">
+                    <div>
+                      <h3>{repo.url ? <a href={repo.url}>{repo.fullName}</a> : repo.fullName}</h3>
+                      <p>{repo.description || (repo.isPrivate ? "Repository details are hidden." : "No description.")}</p>
+                    </div>
+                    <div className="repo-size">
+                      <strong>{formatBytes(repo.languageBytes)}</strong>
+                      <span>{repo.languages.length} languages</span>
+                    </div>
                   </div>
-                  <div className="repo-size">
-                    <strong>{formatBytes(repo.languageBytes)}</strong>
-                    <span>{repo.languages.length} languages</span>
+
+                  <div className="mini-language-bar" aria-label={`${repo.fullName} language percentage bar`}>
+                    {repo.languages.length > 0 ? repo.languages.map((lang) => (
+                      <span key={lang.name} style={{ width: `${lang.percentage}%`, background: lang.color }} title={`${lang.name}: ${lang.percentage.toFixed(1)}%`} />
+                    )) : <span className="empty-segment" />}
                   </div>
-                </div>
 
-                <div className="mini-language-bar" aria-label={`${repo.fullName} language percentage bar`}>
-                  {repo.languages.length > 0 ? repo.languages.map((lang) => (
-                    <span key={lang.name} style={{ width: `${lang.percentage}%`, background: lang.color }} title={`${lang.name}: ${lang.percentage.toFixed(1)}%`} />
-                  )) : <span className="empty-segment" />}
-                </div>
+                  {repo.languages.length > 0 ? (
+                    <div className="repo-language-list">
+                      {repo.languages.map((lang) => (
+                        <div key={lang.name} className="repo-language-row">
+                          <span className="dot" style={{ background: lang.color }} />
+                          <strong>{lang.name}</strong>
+                          <span>{lang.percentage.toFixed(1)}%</span>
+                          <span>{formatBytes(lang.bytes)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">No language bytes were returned for this repository.</p>
+                  )}
 
-                {repo.languages.length > 0 ? (
-                  <div className="repo-language-list">
-                    {repo.languages.map((lang) => (
-                      <div key={lang.name} className="repo-language-row">
-                        <span className="dot" style={{ background: lang.color }} />
-                        <strong>{lang.name}</strong>
-                        <span>{lang.percentage.toFixed(1)}%</span>
-                        <span>{formatBytes(lang.bytes)}</span>
-                      </div>
-                    ))}
+                  <div className="repo-meta">
+                    <span>{repo.primaryLanguage || "Unknown primary"}</span>
+                    <span>Stars {repo.stars}</span>
+                    <span>Forks {repo.forks}</span>
+                    {repo.isPrivate && <span>Hidden name</span>}
+                    {repo.isFork && <span>Fork</span>}
                   </div>
-                ) : (
-                  <p className="muted">No language bytes were returned for this repository.</p>
-                )}
-
-                <div className="repo-meta">
-                  <span>{repo.primaryLanguage || "Unknown primary"}</span>
-                  <span>Stars {repo.stars}</span>
-                  <span>Forks {repo.forks}</span>
-                  {repo.isPrivate && <span>Private</span>}
-                  {repo.isFork && <span>Fork</span>}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="card repo-details-section">
+            <p className="eyebrow">Detailed breakdown hidden</p>
+            <h2>Repository-level details are disabled</h2>
+            <p className="muted">Set SHOW_REPOSITORY_DETAILS=true to show every indexed repository and its language breakdown.</p>
+          </section>
+        )}
       </main>
     );
   } catch (error) {
