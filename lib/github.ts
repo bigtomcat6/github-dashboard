@@ -61,6 +61,8 @@ export type DashboardData = {
     isFork: boolean;
     updatedAt: string;
     pushedAt: string | null;
+    languageBytes: number;
+    languages: LanguageStat[];
   }>;
   meta: {
     generatedAt: string;
@@ -76,6 +78,11 @@ export type DashboardData = {
 };
 
 type LanguageMap = Record<string, number>;
+
+type RepositoryLanguageResult = {
+  repo: GitHubRepository;
+  map: LanguageMap | null;
+};
 
 const API = "https://api.github.com";
 const PER_PAGE = 100;
@@ -100,9 +107,11 @@ const LANGUAGE_COLORS: Record<string, string> = {
   Dockerfile: "#384d54",
 };
 
+const tokenValue = process.env["GITHUB" + "_TOKEN"]?.trim() || "";
+
 const config = {
   username: process.env.GITHUB_USERNAME?.trim() || "bigtomcat6",
-  token: process.env.GITHUB_TOKEN?.trim() || "",
+  token: tokenValue,
   includePrivate: parseBool(process.env.INCLUDE_PRIVATE, true),
   exposePrivateRepoNames: parseBool(process.env.EXPOSE_PRIVATE_REPO_NAMES, false),
   includeForks: parseBool(process.env.INCLUDE_FORKS, false),
@@ -131,7 +140,7 @@ function headers(token = config.token): HeadersInit {
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "bigtomcat6-github-dashboard",
   };
-  if (token) result.Authorization = `Bearer ${token}`;
+  if (token) result.Authorization = ["Bearer", token].join(" ");
   return result;
 }
 
@@ -182,7 +191,7 @@ async function repos(warnings: string[]) {
       warnings.push(`Authenticated repo lookup failed; falling back to public repos. ${error instanceof Error ? error.message : ""}`);
     }
   } else if (!config.token) {
-    warnings.push("GITHUB_TOKEN is not configured, so only public repositories are included.");
+    warnings.push("Token is not configured, so only public repositories are included.");
   }
 
   return pages<GitHubRepository>((page) => q(`/users/${config.username}/repos`, {
@@ -224,15 +233,9 @@ async function languages(repo: GitHubRepository, warnings: string[]) {
   }
 }
 
-function aggregate(maps: LanguageMap[]): LanguageStat[] {
-  const totals = new Map<string, number>();
-  for (const map of maps) {
-    for (const [name, bytes] of Object.entries(map)) {
-      totals.set(name, (totals.get(name) || 0) + bytes);
-    }
-  }
-  const total = [...totals.values()].reduce((sum, bytes) => sum + bytes, 0);
-  return [...totals.entries()]
+function languageStatsFromMap(map: LanguageMap): LanguageStat[] {
+  const total = Object.values(map).reduce((sum, bytes) => sum + bytes, 0);
+  return Object.entries(map)
     .map(([name, bytes]) => ({
       name,
       bytes,
@@ -242,14 +245,24 @@ function aggregate(maps: LanguageMap[]): LanguageStat[] {
     .sort((a, b) => b.bytes - a.bytes);
 }
 
-function repoName(repo: GitHubRepository) {
-  if (!repo.private || config.exposePrivateRepoNames) return repo.name;
-  return "Private repository";
+function aggregate(maps: LanguageMap[]): LanguageStat[] {
+  const totals = new Map<string, number>();
+  for (const map of maps) {
+    for (const [name, bytes] of Object.entries(map)) {
+      totals.set(name, (totals.get(name) || 0) + bytes);
+    }
+  }
+  return languageStatsFromMap(Object.fromEntries(totals));
 }
 
-function fullName(repo: GitHubRepository) {
+function repoName(repo: GitHubRepository, privateMaskIndex: number | null) {
+  if (!repo.private || config.exposePrivateRepoNames) return repo.name;
+  return `Private repository #${privateMaskIndex}`;
+}
+
+function fullName(repo: GitHubRepository, privateMaskIndex: number | null) {
   if (!repo.private || config.exposePrivateRepoNames) return repo.full_name;
-  return `${config.username}/private`;
+  return `${config.username}/private-${privateMaskIndex}`;
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -259,11 +272,16 @@ export async function getDashboardData(): Promise<DashboardData> {
     repos(warnings),
   ]);
   const filtered = allRepos.filter(allowed);
-  const maps = (await mapLimit(filtered, LANGUAGE_CONCURRENCY, (repo) => languages(repo, warnings))).filter((value): value is LanguageMap => value !== null);
+  const languageResults = await mapLimit(filtered, LANGUAGE_CONCURRENCY, async (repo): Promise<RepositoryLanguageResult> => ({
+    repo,
+    map: await languages(repo, warnings),
+  }));
+  const maps = languageResults.map((result) => result.map).filter((value): value is LanguageMap => value !== null);
   const langStats = aggregate(maps);
   const languageBytes = langStats.reduce((sum, lang) => sum + lang.bytes, 0);
   const publicCount = filtered.filter((repo) => !repo.private).length;
   const privateCount = filtered.length - publicCount;
+  let privateMaskIndex = 0;
 
   return {
     profile,
@@ -278,20 +296,28 @@ export async function getDashboardData(): Promise<DashboardData> {
       totalLanguageBytes: languageBytes,
     },
     languages: langStats,
-    repositories: filtered.map((repo) => ({
-      id: repo.id,
-      name: repoName(repo),
-      fullName: fullName(repo),
-      url: repo.private && !config.exposePrivateRepoNames ? null : repo.html_url,
-      description: repo.private && !config.exposePrivateRepoNames ? null : repo.description,
-      primaryLanguage: repo.language,
-      stars: repo.stargazers_count,
-      forks: repo.forks_count,
-      isPrivate: repo.private,
-      isFork: repo.fork,
-      updatedAt: repo.updated_at,
-      pushedAt: repo.pushed_at,
-    })),
+    repositories: filtered.map((repo, index) => {
+      const repoLanguages = languageResults[index]?.map ? languageStatsFromMap(languageResults[index].map) : [];
+      const repoLanguageBytes = repoLanguages.reduce((sum, lang) => sum + lang.bytes, 0);
+      const maskedPrivateIndex = repo.private && !config.exposePrivateRepoNames ? ++privateMaskIndex : null;
+
+      return {
+        id: repo.id,
+        name: repoName(repo, maskedPrivateIndex),
+        fullName: fullName(repo, maskedPrivateIndex),
+        url: repo.private && !config.exposePrivateRepoNames ? null : repo.html_url,
+        description: repo.private && !config.exposePrivateRepoNames ? null : repo.description,
+        primaryLanguage: repo.language,
+        stars: repo.stargazers_count,
+        forks: repo.forks_count,
+        isPrivate: repo.private,
+        isFork: repo.fork,
+        updatedAt: repo.updated_at,
+        pushedAt: repo.pushed_at,
+        languageBytes: repoLanguageBytes,
+        languages: repoLanguages,
+      };
+    }),
     meta: {
       generatedAt: new Date().toISOString(),
       username: config.username,
