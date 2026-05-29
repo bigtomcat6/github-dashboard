@@ -1,4 +1,4 @@
-import { isDashboardProtectionEnabled, noStoreHeaders, safeRedirectPath } from "@/lib/auth";
+import { isDashboardProtectionEnabled, safeRedirectPath } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const runtime = "nodejs";
@@ -37,8 +37,4 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </section>
     </main>
   );
-}
-
-export function generateHeaders() {
-  return noStoreHeaders();
 }
