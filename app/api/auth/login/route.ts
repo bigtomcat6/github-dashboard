@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.redirect(new URL(nextPath, request.url), { status: 303, headers: noStoreHeaders() });
   response.cookies.set(AUTH_COOKIE_NAME, await createSessionCookieValue(), {
     httpOnly: true,
-    secure: true,
+    secure: request.nextUrl.protocol === "https:" || process.env.VERCEL === "1",
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
