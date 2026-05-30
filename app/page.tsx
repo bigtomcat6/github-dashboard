@@ -1,11 +1,12 @@
-import { shouldShowRepositoryDetails } from "@/lib/auth";
+import { assertProtectedDashboardConfigured, shouldShowRepositoryDetails } from "@/lib/auth";
 import { formatBytes, formatNumber, getDashboardData } from "@/lib/github";
 
 export const runtime = "nodejs";
-export const revalidate = 86400;
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   try {
+    assertProtectedDashboardConfigured();
     const data = await getDashboardData();
     const showRepositoryDetails = shouldShowRepositoryDetails();
     const repos = showRepositoryDetails ? [...data.repositories]

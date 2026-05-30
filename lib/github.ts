@@ -77,6 +77,11 @@ export type DashboardData = {
   };
 };
 
+export type LanguageCardData = {
+  username: string;
+  languages: LanguageStat[];
+};
+
 type LanguageMap = Record<string, number>;
 
 type RepositoryLanguageResult = {
@@ -332,6 +337,14 @@ export async function getDashboardData(): Promise<DashboardData> {
   };
 }
 
+export async function getLanguageCardData(): Promise<LanguageCardData> {
+  const data = await getDashboardData();
+  return {
+    username: data.meta.username,
+    languages: data.languages,
+  };
+}
+
 export function cacheHeaders(): HeadersInit {
   return {
     "Cache-Control": `public, s-maxage=${config.revalidateSeconds}, stale-while-revalidate=${config.revalidateSeconds}`,
@@ -349,7 +362,7 @@ export function formatBytes(value: number) {
   return `${(value / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-export function svgCard(data: DashboardData) {
+export function svgCard(data: LanguageCardData) {
   const top = data.languages.slice(0, 6);
   const rows = top.map((lang, i) => {
     const y = 78 + i * 20;
@@ -363,7 +376,7 @@ export function svgCard(data: DashboardData) {
     return parts;
   }, { x: 24, html: "" }).html;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="460" height="210" role="img" aria-label="GitHub language dashboard"><rect width="460" height="210" rx="18" fill="#0f172a"/><text x="24" y="30" fill="#f8fafc" font-family="Arial" font-size="18" font-weight="700">${escapeXml(data.meta.username)} language profile</text><clipPath id="bar"><rect x="24" y="45" width="412" height="10" rx="5"/></clipPath><g clip-path="url(#bar)">${bars}</g>${rows}<text x="24" y="192" fill="#64748b" font-size="11">${data.stats.repositoryCount} repos · ${formatBytes(data.stats.totalLanguageBytes)} indexed</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="460" height="210" role="img" aria-label="GitHub language dashboard"><rect width="460" height="210" rx="18" fill="#0f172a"/><text x="24" y="30" fill="#f8fafc" font-family="Arial" font-size="18" font-weight="700">${escapeXml(data.username)} language profile</text><clipPath id="bar"><rect x="24" y="45" width="412" height="10" rx="5"/></clipPath><g clip-path="url(#bar)">${bars}</g>${rows}</svg>`;
 }
 
 function escapeXml(value: string) {

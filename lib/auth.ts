@@ -15,7 +15,30 @@ export function shouldShowRepositoryDetails() {
 export function noStoreHeaders(): HeadersInit {
   return {
     "Cache-Control": "private, no-store, max-age=0",
+    "CDN-Cache-Control": "no-store",
+    "Vercel-CDN-Cache-Control": "no-store",
   };
+}
+
+export function publicCacheHeaders(seconds: number): HeadersInit {
+  const maxAge = Math.max(0, Math.floor(seconds));
+  return {
+    "Cache-Control": `public, max-age=0, s-maxage=${maxAge}`,
+    "CDN-Cache-Control": `public, max-age=${maxAge}`,
+    "Vercel-CDN-Cache-Control": `public, max-age=${maxAge}`,
+  };
+}
+
+export function assertProtectedDashboardConfigured() {
+  if (!isProductionLikeRuntime()) return;
+  if (!privateRepositoryDataEnabled()) return;
+  if (isDashboardProtectionEnabled()) return;
+
+  throw new Error("DASHBOARD_PASSWORD is required in production when private dashboard data is enabled.");
+}
+
+export function isPublicLanguageCardAllowed() {
+  return true;
 }
 
 export async function verifyDashboardPassword(input: string) {
@@ -63,6 +86,14 @@ function dashboardPassword() {
 
 function sessionSecret() {
   return process.env.DASHBOARD_SESSION_SECRET?.trim() || dashboardPassword();
+}
+
+function privateRepositoryDataEnabled() {
+  return Boolean(process.env.GITHUB_TOKEN?.trim()) && parseBool(process.env.INCLUDE_PRIVATE, true);
+}
+
+function isProductionLikeRuntime() {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
 }
 
 function parseBool(value: string | undefined, fallback: boolean) {

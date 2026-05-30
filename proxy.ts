@@ -47,5 +47,7 @@ function isProtectedPath(pathname: string) {
 }
 
 function setNoStore(response: NextResponse) {
-  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  for (const [key, value] of Object.entries(noStoreHeaders() as Record<string, string>)) {
+    response.headers.set(key, value);
+  }
 }
